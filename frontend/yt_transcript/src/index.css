@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@theme {
+  --font-manrope: "Manrope", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  --color-primary-dim: #004da4;
+  --color-surface-dim: #d1d5d7;
+  --color-secondary: #545c68;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-secondary-fixed-variant: #545c68;
+  --color-secondary-fixed-dim: #cdd5e3;
+  --color-tertiary: #006a2b;
+  --color-surface-variant: #dadddf;
+  --color-tertiary-container: #86f898;
+  --color-secondary-container: #dbe3f1;
+  --color-primary-fixed-dim: #5091ff;
+  --color-secondary-fixed: #dbe3f1;
+  --color-on-secondary-container: #4a525e;
+  --color-surface-bright: #f5f6f7;
+  --color-surface-tint: #0058ba;
+  --color-on-primary-fixed: #000000;
+  --color-on-secondary-fixed: #38404b;
+  --color-on-tertiary-fixed: #00481b;
+  --color-outline-variant: #abadae;
+  --color-primary-container: #6c9fff;
+  --color-on-tertiary-fixed-variant: #00682a;
+  --color-on-tertiary: #cfffcf;
+  --color-surface-container-highest: #dadddf;
+  --color-surface-container-low: #eff1f2;
+  --color-surface: #f5f6f7;
+  --color-inverse-surface: #0c0f10;
+  --color-on-surface: #2c2f30;
+  --color-error-container: #fb5151;
+  --color-background: #f5f6f7;
+  --color-on-background: #2c2f30;
+  --color-error-dim: #9f0519;
+  --color-tertiary-dim: #005d24;
+  --color-tertiary-fixed: #86f898;
+  --color-on-primary: #f0f2ff;
+  --color-on-error: #ffefee;
+  --color-secondary-dim: #48505b;
+  --color-inverse-primary: #4a8eff;
+  --color-on-tertiary-container: #005d25;
+  --color-outline: #757778;
+  --color-error: #b31b25;
+  --color-on-surface-variant: #595c5d;
+  --color-tertiary-fixed-dim: #78e98b;
+  --color-surface-container-high: #e0e3e4;
+  --color-on-secondary: #edf3ff;
+  --color-surface-container: #e6e8ea;
+  --color-primary-fixed: #6c9fff;
+  --color-inverse-on-surface: #9b9d9e;
+  --color-on-primary-container: #00214e;
+  --color-primary: #0058ba;
+  --color-on-error-container: #570008;
+  --color-on-primary-fixed-variant: #002a60;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--color-surface, #f5f6f7);
+  color: var(--color-on-surface, #2c2f30);
+}
+
+h1,
+h2,
+h3,
+.font-manrope {
+  font-family: 'Manrope', sans-serif;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Markdown Typography Styles */
+.prose-markdown h1,
+.prose-markdown h2,
+.prose-markdown h3 {
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-on-surface);
+}
+
+.prose-markdown h1 {
+  font-size: 1.75rem;
+}
+
+.prose-markdown h2 {
+  font-size: 1.5rem;
+}
+
+.prose-markdown h3 {
+  font-size: 1.25rem;
+}
+
+.prose-markdown p {
+  margin-bottom: 1rem;
+  color: var(--color-on-surface-variant);
+}
+
+.prose-markdown ul,
+.prose-markdown ol {
+  list-style: disc;
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--color-on-surface-variant);
+}
+
+.prose-markdown li {
+  margin-bottom: 0.25rem;
+}
+
+.prose-markdown strong {
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.prose-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.875rem;
+  background: var(--color-surface-container-lowest);
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-outline-variant);
+}
+
+.prose-markdown th,
+.prose-markdown td {
+  border: 1px solid var(--color-outline-variant);
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+.prose-markdown th {
+  background: var(--color-surface-container-low);
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.prose-markdown br {
+  margin-bottom: 0.5rem;
+}
