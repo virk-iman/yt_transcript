@@ -1,13 +1,28 @@
 import express from 'express';
 import cors from 'cors';
 import { YoutubeTranscript } from 'youtube-transcript/dist/youtube-transcript.esm.js';
-import { Groq } from 'groq-sdk';
+import { Queue } from 'bullmq';
+import IORedis from 'ioredis';
+import crypto from 'crypto';
 import 'dotenv/config';
-
-const groq = new Groq();
 
 const app = express();
 const port = process.env.PORT || 5001;
+
+// Redis connection
+const connection = process.env.REDIS_URL
+    ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
+    : new IORedis({
+        host: process.env.REDIS_HOST || '127.0.0.1',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        maxRetriesPerRequest: null,
+    });
+
+// BullMQ Queue
+const summarizeQueue = new Queue('summarize', { connection });
+
+// In-memory cache: videoUrl -> summary
+const summaryCache = new Map();
 
 app.use(cors({
     origin: '*',
@@ -16,6 +31,12 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Helper: generate a cache key from video URL
+function getCacheKey(videoUrl) {
+    return crypto.createHash('md5').update(videoUrl.trim()).digest('hex');
+}
+
+// ─── Transcript Endpoint ───────────────────────────────────────
 app.post('/api/transcript', async (req, res) => {
     try {
         const { url } = req.body;
@@ -40,104 +61,131 @@ app.post('/api/transcript', async (req, res) => {
     }
 });
 
-const CHUNK_SIZE_CHARS = 8000; // Smaller chunks to be safer with token limits
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-function chunkTranscript(transcript) {
-    const chunks = [];
-    let currentChunk = "";
-    for (const segment of transcript) {
-        if ((currentChunk.length + segment.text.length) > CHUNK_SIZE_CHARS) {
-            chunks.push(currentChunk);
-            currentChunk = "";
-        }
-        currentChunk += segment.text + " ";
-    }
-    if (currentChunk) chunks.push(currentChunk);
-    return chunks;
-}
-
+// ─── Submit Summarize Job ──────────────────────────────────────
 app.post('/api/summarize', async (req, res) => {
     try {
-        const { transcript } = req.body;
+        const { transcript, videoUrl } = req.body;
 
         if (!transcript || !Array.isArray(transcript)) {
             return res.status(400).json({ error: 'Transcript data is required' });
         }
 
-        const chunks = chunkTranscript(transcript);
-        console.log(`Summarizing transcript in ${chunks.length} chunks...`);
-
-        const partialSummaries = [];
-        for (let i = 0; i < chunks.length; i++) {
-            if (i > 0) {
-                console.log(`Waiting 15 seconds before processing chunk ${i + 1}/${chunks.length}...`);
-                await sleep(15000);
-            }
-            console.log(`Summarizing chunk ${i + 1}/${chunks.length}...`);
-            const chatCompletion = await groq.chat.completions.create({
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are summarizing a PART of a YouTube video transcript. Provide key points and important details. IMPORTANT: Do not use HTML tags like <br> or <div>. Always use standard Markdown and ensure the summary is in English."
-                    },
-                    {
-                        "role": "user",
-                        "content": chunks[i]
-                    }
-                ],
-                "model": "openai/gpt-oss-20b",
-                "temperature": 1,
-                "max_completion_tokens": 2048,
-                "top_p": 1,
-                "stream": false,
-                "reasoning_effort": "medium"
-            });
-            partialSummaries.push(chatCompletion.choices[0]?.message?.content || "");
+        // Check cache first
+        const cacheKey = getCacheKey(videoUrl || JSON.stringify(transcript.slice(0, 3)));
+        if (summaryCache.has(cacheKey)) {
+            console.log(`[Cache Hit] Returning cached summary for: ${videoUrl}`);
+            return res.json({ jobId: `cached_${cacheKey}`, cached: true, summary: summaryCache.get(cacheKey) });
         }
 
-        let summary;
-        if (partialSummaries.length > 1) {
-            console.log('Waiting 15 seconds before final merge...');
-            await sleep(15000);
-            console.log('Merging partial summaries into final summary...');
-            const finalCompletion = await groq.chat.completions.create({
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a professional assistant. Merge these summaries into a single, cohesive, highly structured final report in English. IMPORTANT: Do NOT use any HTML tags (like <br>). Use only standard Markdown. If you need multiple lines in a table cell or bullet point, use Markdown newlines or separate bullets."
-                    },
-                    {
-                        "role": "user",
-                        "content": `Combine these partial summaries into one final summary:\n\n${partialSummaries.join("\n\n---\n\n")}`
-                    }
-                ],
-                "model": "openai/gpt-oss-20b",
-                "temperature": 1,
-                "max_completion_tokens": 4096,
-                "top_p": 1,
-                "stream": false,
-                "reasoning_effort": "medium"
-            });
-            summary = finalCompletion.choices[0]?.message?.content;
-        } else {
-            summary = partialSummaries[0];
-        }
+        // Add job to queue
+        const job = await summarizeQueue.add('summarize-video', {
+            transcript,
+            videoUrl: videoUrl || 'unknown',
+            cacheKey,
+        }, {
+            attempts: 3,
+            backoff: {
+                type: 'exponential',
+                delay: 20000, // 20s base backoff on retry
+            },
+            removeOnComplete: { age: 3600 }, // Keep completed jobs for 1 hour
+            removeOnFail: { age: 7200 },     // Keep failed jobs for 2 hours
+        });
 
-        console.log('Summarization complete.');
-        res.json({ summary });
+        console.log(`[Queue] Job ${job.id} added for: ${videoUrl}`);
+
+        // Return the job ID for polling
+        res.json({ jobId: job.id, status: 'queued' });
 
     } catch (error) {
-        console.error('Error summarizing:', error.response?.data || error.message);
+        console.error('Error submitting job:', error.message);
         res.status(500).json({
-            error: 'Failed to generate summary',
-            details: error.response?.data?.message || (error.message.includes('413') ? 'Transcript is too large for the current AI tier. Refined chunking implemented.' : error.message)
+            error: 'Failed to submit summarization job',
+            details: error.message
         });
     }
 });
 
+// ─── Poll Job Status ───────────────────────────────────────────
+app.get('/api/summarize/status/:jobId', async (req, res) => {
+    try {
+        const { jobId } = req.params;
+
+        // Handle cached results
+        if (jobId.startsWith('cached_')) {
+            const cacheKey = jobId.replace('cached_', '');
+            const summary = summaryCache.get(cacheKey);
+            if (summary) {
+                return res.json({ status: 'completed', summary });
+            }
+            return res.json({ status: 'failed', error: 'Cache entry expired' });
+        }
+
+        const job = await summarizeQueue.getJob(jobId);
+
+        if (!job) {
+            return res.status(404).json({ status: 'not_found', error: 'Job not found' });
+        }
+
+        const state = await job.getState();
+        const progress = job.progress;
+
+        if (state === 'completed') {
+            const result = job.returnvalue;
+            // Cache the result
+            if (result?.summary && job.data?.cacheKey) {
+                summaryCache.set(job.data.cacheKey, result.summary);
+            }
+            return res.json({ status: 'completed', summary: result?.summary });
+        }
+
+        if (state === 'failed') {
+            return res.json({ status: 'failed', error: job.failedReason || 'Unknown error' });
+        }
+
+        // Still processing
+        const queuePosition = state === 'waiting' ? await getQueuePosition(jobId) : null;
+
+        return res.json({
+            status: state, // 'waiting', 'active', 'delayed'
+            progress,
+            queuePosition,
+        });
+
+    } catch (error) {
+        console.error('Error checking job status:', error.message);
+        res.status(500).json({ status: 'error', error: error.message });
+    }
+});
+
+// Helper: get position in queue
+async function getQueuePosition(jobId) {
+    try {
+        const waiting = await summarizeQueue.getWaiting(0, 50);
+        const index = waiting.findIndex(j => j.id === jobId);
+        return index >= 0 ? index + 1 : null;
+    } catch {
+        return null;
+    }
+}
+
+// ─── Queue Stats (optional admin endpoint) ─────────────────────
+app.get('/api/queue/stats', async (req, res) => {
+    try {
+        const counts = await summarizeQueue.getJobCounts();
+        res.json({
+            ...counts,
+            cacheSize: summaryCache.size,
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ─── Server ────────────────────────────────────────────────────
 const server = app.listen(port, () => {
     console.log(`Backend server running on http://localhost:${port}`);
+    console.log(`Redis connected. Queue ready.`);
 });
 
 server.on('error', (err) => {

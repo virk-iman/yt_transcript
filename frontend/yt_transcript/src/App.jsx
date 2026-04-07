@@ -3,6 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+
 function formatTime(ms) {
   if (ms === undefined || ms === null) return '00:00';
   const totalSeconds = Math.floor(ms / 1000);
@@ -28,7 +30,7 @@ function App() {
     setError(null);
     setTranscriptData(null);
     try {
-      const res = await fetch('http://localhost:5001/api/transcript', {
+      const res = await fetch(`${API_BASE_URL}/api/transcript`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
@@ -52,20 +54,66 @@ function App() {
     }
   };
 
+  const [summaryProgress, setSummaryProgress] = useState(null);
+
   const fetchSummary = async () => {
     if (!transcriptData?.content || summaryData) return;
     setLoadingSummary(true);
+    setSummaryProgress({ stage: 'submitting' });
     try {
-      const res = await fetch('http://localhost:5001/api/summarize', {
+      // Step 1: Submit job
+      const res = await fetch(`${API_BASE_URL}/api/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: transcriptData.content }),
+        body: JSON.stringify({ transcript: transcriptData.content, videoUrl: url }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate summary');
-      setSummaryData(data.summary);
+      if (!res.ok) throw new Error(data.error || 'Failed to submit job');
+
+      // If cached, return immediately
+      if (data.cached && data.summary) {
+        setSummaryData(data.summary);
+        setSummaryProgress(null);
+        setLoadingSummary(false);
+        return;
+      }
+
+      // Step 2: Poll for status
+      const jobId = data.jobId;
+      let attempts = 0;
+      const maxAttempts = 120; // 4 minutes max (120 * 2s)
+
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 2000));
+        attempts++;
+
+        const statusRes = await fetch(`${API_BASE_URL}/api/summarize/status/${jobId}`);
+        const statusData = await statusRes.json();
+
+        if (statusData.status === 'completed') {
+          setSummaryData(statusData.summary);
+          setSummaryProgress(null);
+          setLoadingSummary(false);
+          return;
+        }
+
+        if (statusData.status === 'failed') {
+          throw new Error(statusData.error || 'Summarization failed');
+        }
+
+        // Update progress for the UI
+        setSummaryProgress({
+          stage: statusData.progress?.stage || statusData.status,
+          chunk: statusData.progress?.chunk,
+          total: statusData.progress?.total,
+          queuePosition: statusData.queuePosition,
+        });
+      }
+
+      throw new Error('Summarization timed out. Please try again.');
     } catch (err) {
       setError(err.message);
+      setSummaryProgress(null);
     } finally {
       setLoadingSummary(false);
     }
@@ -315,15 +363,26 @@ function App() {
                       ) : (
                         <div className="prose prose-sm max-w-none text-on-surface">
                           {loadingSummary ? (
-                            <div className="space-y-4 animate-pulse">
-                              <div className="h-4 bg-surface-container-high rounded w-3/4"></div>
-                              <div className="h-4 bg-surface-container-high rounded w-full"></div>
-                              <div className="h-4 bg-surface-container-high rounded w-5/6"></div>
-                              <div className="mt-8 space-y-2">
-                                <div className="h-4 bg-surface-container-high rounded w-1/4"></div>
-                                <div className="h-4 bg-surface-container-high rounded w-full"></div>
-                                <div className="h-4 bg-surface-container-high rounded w-full"></div>
-                              </div>
+                            <div className="flex flex-col items-center justify-center py-16 gap-4">
+                              <span className="material-symbols-outlined text-primary text-5xl animate-spin">progress_activity</span>
+                              <p className="text-on-surface font-semibold text-lg">
+                                {summaryProgress?.stage === 'submitting' && 'Submitting to queue...'}
+                                {summaryProgress?.stage === 'waiting' && `In queue — Position #${summaryProgress.queuePosition || '...'}`}
+                                {summaryProgress?.stage === 'active' && 'Processing...'}
+                                {summaryProgress?.stage === 'chunking' && `Preparing ${summaryProgress.total || ''} chunks...`}
+                                {summaryProgress?.stage === 'summarizing' && `Summarizing chunk ${summaryProgress.chunk}/${summaryProgress.total}...`}
+                                {summaryProgress?.stage === 'merging' && 'Merging into final summary...'}
+                                {!summaryProgress?.stage && 'Starting...'}
+                              </p>
+                              <p className="text-on-surface-variant text-sm">This may take a minute for longer videos</p>
+                              {summaryProgress?.total > 1 && summaryProgress?.chunk && (
+                                <div className="w-48 h-1.5 bg-surface-container-high rounded-full overflow-hidden mt-2">
+                                  <div
+                                    className="h-full bg-primary rounded-full transition-all duration-500"
+                                    style={{ width: `${(summaryProgress.chunk / (summaryProgress.total + 1)) * 100}%` }}
+                                  />
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="prose-markdown leading-relaxed">
