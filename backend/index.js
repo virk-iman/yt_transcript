@@ -1,23 +1,15 @@
 import express from 'express';
 import cors from 'cors';
-import { YoutubeTranscript } from 'youtube-transcript/dist/youtube-transcript.esm.js';
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import crypto from 'crypto';
+import { ApifyClient } from 'apify-client';
 import 'dotenv/config';
 
-// ─── YouTube Bot Detection Bypass ────────────────────────────
-const originalFetch = global.fetch;
-global.fetch = (url, options = {}) => {
-    return originalFetch(url, {
-        ...options,
-        headers: {
-            ...options.headers,
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-        },
-    });
-};
+// Initialize the ApifyClient
+const apifyClient = new ApifyClient({
+    token: process.env.APIFY_TOKEN,
+});
 
 const app = express();
 const port = process.env.PORT || 5001;
@@ -60,7 +52,7 @@ function getCacheKey(videoUrl) {
     return crypto.createHash('md5').update(videoUrl.trim()).digest('hex');
 }
 
-// ─── Transcript Endpoint ───────────────────────────────────────
+// ─── Transcript Endpoint (using Apify) ─────────────────────────
 app.post('/api/transcript', async (req, res) => {
     try {
         const { url } = req.body;
@@ -69,17 +61,47 @@ app.post('/api/transcript', async (req, res) => {
             return res.status(400).json({ error: 'Video URL is required' });
         }
 
-        console.log(`Fetching transcript for: ${url}`);
+        console.log(`[Apify] Fetching transcript for: ${url}`);
 
-        const transcript = await YoutubeTranscript.fetchTranscript(url);
-        console.log(`Got ${transcript.length} segments`);
+        // Prepare Apify Actor input
+        const input = {
+            "outputFormat": "captions",
+            "urls": [url],
+            "maxRetries": 8,
+            "channelNameBoolean": true,
+            "channelIDBoolean": true,
+            "datePublishedBoolean": true,
+            "thumbnailBoolean": true,
+            "proxyOptions": {
+                "useApifyProxy": true
+            }
+        };
 
-        res.json({ content: transcript });
+        // Run the Actor (1s7eXiaukVuOr4Ueg is the YouTube Transcript Scraper)
+        const run = await apifyClient.actor("1s7eXiaukVuOr4Ueg").call(input);
+
+        // Fetch results from dataset
+        const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+
+        if (!items || items.length === 0 || !items[0].captions) {
+            throw new Error('No transcript found via Apify for this video');
+        }
+
+        // Map Apify captions to the format expected by our frontend and worker
+        // Apify uses 'start' (seconds) and 'text'
+        const formattedTranscript = items[0].captions.map(c => ({
+            text: c.text,
+            offset: Math.floor(c.start * 1000), // convert to milliseconds
+            duration: Math.floor((c.duration || 0) * 1000)
+        }));
+
+        console.log(`[Apify] Got ${formattedTranscript.length} segments`);
+        res.json({ content: formattedTranscript });
 
     } catch (error) {
-        console.error('Error fetching transcript:', error.message);
+        console.error('Error fetching transcript via Apify:', error.message);
         res.status(500).json({
-            error: 'Failed to fetch transcript',
+            error: 'Failed to fetch transcript (Apify)',
             details: error.message
         });
     }
