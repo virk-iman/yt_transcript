@@ -262,7 +262,7 @@ async function summarizeChunks(transcript) {
                 { role: "system", content: "Summarize the following transcript segment. Use markdown." },
                 { role: "user", content: chunks[i] }
             ],
-            model: "mixtral-8x7b-32768",
+            model: "llama-3.3-70b-versatile",
         });
 
         finalSummary += (completion.choices[0]?.message?.content || "") + "\n\n";
