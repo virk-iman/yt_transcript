@@ -14,9 +14,14 @@ const apifyClient = new ApifyClient({
 const app = express();
 const port = process.env.PORT || 5001;
 
-// Redis connection logic
 const connection = process.env.REDIS_URL
-    ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
+    ? new IORedis(process.env.REDIS_URL, {
+        maxRetriesPerRequest: null,
+        // MUST add this for Upstash + Render
+        tls: {
+            rejectUnauthorized: false
+        }
+    })
     : new IORedis({
         host: process.env.REDIS_HOST || '127.0.0.1',
         port: parseInt(process.env.REDIS_PORT || '6379'),
