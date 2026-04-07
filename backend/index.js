@@ -225,8 +225,7 @@ app.get('/api/queue/stats', async (req, res) => {
     }
 });
 
-// ─── Server ────────────────────────────────────────────────────
-const server = // ─── Summarization Worker Logic (Consolidated) ───────────────────
+// ─── Summarization Worker Logic (Consolidated) ───────────────────
 const RATE_LIMIT_DELAY_MS = 15000; // 15s between chunks
 
 async function summarizeChunks(transcript) {
@@ -292,16 +291,13 @@ const summarizeWorker = new Worker('summarize', async (job) => {
 summarizeWorker.on('completed', (job) => console.log(`[Worker] Success: Job ${job.id}`));
 summarizeWorker.on('failed', (job, err) => console.error(`[Worker] Failed: Job ${job?.id}`, err.message));
 
-app.listen(port, () => {
+// ─── Final Server Startup ───────────────────────────────────────
+const server = app.listen(port, () => {
     console.log(`Backend server running on http://localhost:${port}`);
-}); console.log(`Redis connected. Queue ready.`);
+    console.log(`Redis connected. Worker ready.`);
 });
 
 server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${port} is already in use. Try a different port.`);
-    } else {
-        console.error('Server error:', err);
-    }
+    console.error('Server error:', err);
     process.exit(1);
 });

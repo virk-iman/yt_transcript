@@ -2,9 +2,7 @@
   "name": "yt_transcript_master",
   "version": "1.0.0",
   "scripts": {
-    "start": "concurrently \"npm run backend-prod\" \"npm run worker-prod\"",
-    "backend-prod": "cd backend && node index.js",
-    "worker-prod": "cd backend && node summarizeWorker.js",
+    "start": "cd backend && node index.js",
     "postinstall": "cd backend && npm install",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "backend": "cd backend && npm run dev",
