@@ -5,6 +5,7 @@
     "start": "concurrently \"npm run backend-prod\" \"npm run worker-prod\"",
     "backend-prod": "cd backend && node index.js",
     "worker-prod": "cd backend && node summarizeWorker.js",
+    "postinstall": "cd backend && npm install",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "backend": "cd backend && npm run dev",
     "frontend": "cd frontend/yt_transcript && npm run dev",
@@ -12,7 +13,7 @@
     "redis": "brew services start redis",
     "app": "npm run redis && concurrently \"npm run backend\" \"npm run frontend\""
   },
-  "devDependencies": {
+  "dependencies": {
     "concurrently": "^8.2.2"
   }
 }
