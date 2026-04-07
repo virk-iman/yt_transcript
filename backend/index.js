@@ -229,7 +229,7 @@ app.get('/api/queue/stats', async (req, res) => {
 const RATE_LIMIT_DELAY_MS = 15000; // 15s between chunks
 
 async function summarizeChunks(transcript) {
-    const CHUNK_SIZE_CHARS = 12000;
+    const CHUNK_SIZE_CHARS = 8000;
     const chunks = [];
     let currentChunk = "";
 
@@ -262,7 +262,7 @@ async function summarizeChunks(transcript) {
                 { role: "system", content: "Summarize the following transcript segment. Use markdown and ensure the summary is in English." },
                 { role: "user", content: chunks[i] }
             ],
-            model: "llama-3.3-70b-versatile",
+            model: "llama-3.1-8b-instant",
         });
 
         finalSummary += (completion.choices[0]?.message?.content || "") + "\n\n";
