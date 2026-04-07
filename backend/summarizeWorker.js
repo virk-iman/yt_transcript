@@ -139,10 +139,15 @@ const worker = new Worker(
         return { summary };
     },
     {
-        connection: process.env.REDIS_URL || {
-            host: process.env.REDIS_HOST || '127.0.0.1',
-            port: parseInt(process.env.REDIS_PORT || '6379'),
-        },
+        connection: process.env.REDIS_URL
+            ? {
+                url: process.env.REDIS_URL,
+                tls: { rejectUnauthorized: false }
+            }
+            : {
+                host: process.env.REDIS_HOST || '127.0.0.1',
+                port: parseInt(process.env.REDIS_PORT || '6379'),
+            },
         concurrency: 1,
         limiter: {
             max: 1,
