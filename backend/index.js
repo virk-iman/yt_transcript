@@ -262,7 +262,10 @@ async function summarizeChunks(transcript) {
         try {
             const completion = await client.chat.completions.create({
                 messages: [
-                    { role: "system", content: "Summarize the following transcript segment. Use markdown and ensure the summary is in English." },
+                    {
+                        role: "system",
+                        content: "You are a professional content summarizer. CRITICAL: Regardless of the input language, your summary MUST be written entirely in English. Use clear, professional markdown."
+                    },
                     { role: "user", content: chunks[i] }
                 ],
                 model: "llama-3.1-8b-instant",
