@@ -229,7 +229,8 @@ app.get('/api/queue/stats', async (req, res) => {
 const RATE_LIMIT_DELAY_MS = 15000; // 15s between chunks
 
 async function summarizeChunks(transcript) {
-    const CHUNK_SIZE_CHARS = 8000;
+    const CHUNK_SIZE_CHARS = 3000; // Small chunks for your 6000 TPM limit
+    const RATE_LIMIT_DELAY = 15000; // 15s between chunks
     const chunks = [];
     let currentChunk = "";
 
@@ -252,24 +253,37 @@ async function summarizeChunks(transcript) {
         .filter(Boolean);
 
     for (let i = 0; i < chunks.length; i++) {
+        // Rotate keys per chunk to multiply your rate limit
         const key = apiKeys[i % apiKeys.length];
         const client = new Groq({ apiKey: key });
 
-        console.log(`[Worker] Summarizing chunk ${i + 1}/${chunks.length}...`);
+        console.log(`[Worker] Processing chunk ${i + 1}/${chunks.length} using key ${i % apiKeys.length + 1}...`);
 
-        const completion = await client.chat.completions.create({
-            messages: [
-                { role: "system", content: "Summarize the following transcript segment. Use markdown and ensure the summary is in English." },
-                { role: "user", content: chunks[i] }
-            ],
-            model: "llama-3.1-8b-instant",
-        });
+        try {
+            const completion = await client.chat.completions.create({
+                messages: [
+                    { role: "system", content: "Summarize the following transcript segment. Use markdown and ensure the summary is in English." },
+                    { role: "user", content: chunks[i] }
+                ],
+                model: "llama-3.1-8b-instant",
+            });
 
-        finalSummary += (completion.choices[0]?.message?.content || "") + "\n\n";
+            finalSummary += (completion.choices[0]?.message?.content || "") + "\n\n";
 
-        if (i < chunks.length - 1) {
-            console.log(`[Worker] Waiting ${RATE_LIMIT_DELAY_MS}ms for rate limits...`);
-            await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY_MS));
+            if (i < chunks.length - 1) {
+                console.log(`[Worker] Waiting for rate limits...`);
+                await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
+            }
+        } catch (err) {
+            console.error(`[Worker] Error in chunk ${i + 1}:`, err.message);
+            // If we hit a limit even with rotation, wait longer
+            if (err.message.includes('rate_limit')) {
+                console.log('[Worker] Hit rate limit. Waiting 30s before retry...');
+                await new Promise(r => setTimeout(r, 30000));
+                i--; // Retry this chunk
+                continue;
+            }
+            throw err;
         }
     }
 
