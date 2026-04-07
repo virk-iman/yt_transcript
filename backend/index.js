@@ -268,7 +268,7 @@ async function summarizeChunks(transcript) {
                     },
                     { role: "user", content: chunks[i] }
                 ],
-                model: "llama-3.1-8b-instant",
+                model: "openai/gpt-oss-20b",
             });
 
             finalSummary += (completion.choices[0]?.message?.content || "") + "\n\n";
