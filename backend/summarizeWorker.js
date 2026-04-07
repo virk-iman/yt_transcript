@@ -133,22 +133,12 @@ async function summarizeChunks(transcript, job) {
 // ─── BullMQ Worker ────────────────────────────────────────────
 // ─── Worker Setup ─────────────────────────────────────────────
 const workerOptions = {
-    connection: process.env.REDIS_URL ? (function () {
-        const url = new URL(process.env.REDIS_URL);
-        return {
-            host: url.hostname,
-            port: parseInt(url.port),
-            username: url.username,
-            password: url.password,
-            tls: { rejectUnauthorized: false },
-            family: 4,
-            connectTimeout: 15000,
-            maxRetriesPerRequest: null
-        };
-    })() : {
-        host: process.env.REDIS_HOST || '127.0.0.1',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-    },
+    connection: process.env.REDIS_URL
+        ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
+        : {
+            host: process.env.REDIS_HOST || '127.0.0.1',
+            port: parseInt(process.env.REDIS_PORT || '6379'),
+        },
     concurrency: 1,
     limiter: {
         max: 1,
