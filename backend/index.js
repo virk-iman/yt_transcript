@@ -16,7 +16,13 @@ const port = process.env.PORT || 5001;
 
 // Redis connection
 const connection = process.env.REDIS_URL
-    ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
+    ? new IORedis(process.env.REDIS_URL, {
+        maxRetriesPerRequest: null,
+        // This is the missing piece for Upstash + Render
+        tls: {
+            rejectUnauthorized: false
+        }
+    })
     : new IORedis({
         host: process.env.REDIS_HOST || '127.0.0.1',
         port: parseInt(process.env.REDIS_PORT || '6379'),
