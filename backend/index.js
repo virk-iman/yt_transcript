@@ -1,15 +1,21 @@
-import express from 'express';
-import cors from 'cors';
-import { Queue } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import crypto from 'crypto';
 import { ApifyClient } from 'apify-client';
+import Groq from 'groq-sdk';
 import 'dotenv/config';
+
+const groq = new Groq({
+    apiKey: (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',')[0].trim()
+});
 
 // Initialize the ApifyClient
 const apifyClient = new ApifyClient({
     token: process.env.APIFY_TOKEN,
 });
+
+import express from 'express';
+import cors from 'cors';
 
 const app = express();
 const port = process.env.PORT || 5001;
@@ -220,9 +226,75 @@ app.get('/api/queue/stats', async (req, res) => {
 });
 
 // ─── Server ────────────────────────────────────────────────────
-const server = app.listen(port, () => {
+const server = // ─── Summarization Worker Logic (Consolidated) ───────────────────
+const RATE_LIMIT_DELAY_MS = 15000; // 15s between chunks
+
+async function summarizeChunks(transcript) {
+    const CHUNK_SIZE_CHARS = 12000;
+    const chunks = [];
+    let currentChunk = "";
+
+    for (const segment of transcript) {
+        if (!segment || !segment.text) continue;
+        if ((currentChunk.length + segment.text.length) > CHUNK_SIZE_CHARS) {
+            chunks.push(currentChunk);
+            currentChunk = "";
+        }
+        currentChunk += segment.text + " ";
+    }
+    if (currentChunk) chunks.push(currentChunk);
+
+    console.log(`[Worker] Summarizing transcript in ${chunks.length} chunks...`);
+
+    let finalSummary = "";
+    const apiKeys = (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '')
+        .split(',')
+        .map(k => k.trim().replace(/^["']|["']$/g, ''))
+        .filter(Boolean);
+
+    for (let i = 0; i < chunks.length; i++) {
+        const key = apiKeys[i % apiKeys.length];
+        const client = new Groq({ apiKey: key });
+
+        console.log(`[Worker] Summarizing chunk ${i + 1}/${chunks.length}...`);
+
+        const completion = await client.chat.completions.create({
+            messages: [
+                { role: "system", content: "Summarize the following transcript segment. Use markdown." },
+                { role: "user", content: chunks[i] }
+            ],
+            model: "mixtral-8x7b-32768",
+        });
+
+        finalSummary += (completion.choices[0]?.message?.content || "") + "\n\n";
+
+        if (i < chunks.length - 1) {
+            console.log(`[Worker] Waiting ${RATE_LIMIT_DELAY_MS}ms for rate limits...`);
+            await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY_MS));
+        }
+    }
+
+    return finalSummary;
+}
+
+// Initialize Worker in the same process
+const summarizeWorker = new Worker('summarize', async (job) => {
+    console.log(`[Worker] Processing job ${job.id} for video: ${job.data.videoUrl || 'unknown'}`);
+    const summary = await summarizeChunks(job.data.transcript);
+    console.log(`[Worker] Job ${job.id} completed.`);
+    return { summary };
+}, {
+    connection,
+    concurrency: 1,
+    limiter: { max: 1, duration: RATE_LIMIT_DELAY_MS }
+});
+
+summarizeWorker.on('completed', (job) => console.log(`[Worker] Success: Job ${job.id}`));
+summarizeWorker.on('failed', (job, err) => console.error(`[Worker] Failed: Job ${job?.id}`, err.message));
+
+app.listen(port, () => {
     console.log(`Backend server running on http://localhost:${port}`);
-    console.log(`Redis connected. Queue ready.`);
+}); console.log(`Redis connected. Queue ready.`);
 });
 
 server.on('error', (err) => {
