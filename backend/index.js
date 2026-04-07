@@ -10,16 +10,25 @@ const app = express();
 const port = process.env.PORT || 5001;
 
 // Redis connection
-const connection = process.env.REDIS_URL
-    ? new IORedis(process.env.REDIS_URL, {
+const connectionOptions = process.env.REDIS_URL
+    ? {
         maxRetriesPerRequest: null,
-        tls: { rejectUnauthorized: false } // Required for Upstash/Render
-    })
-    : new IORedis({
+        family: 0, // Force try IPv4 and IPv6
+        connectTimeout: 20000, // 20s timeout
+        tls: { rejectUnauthorized: false }
+    }
+    : {
         host: process.env.REDIS_HOST || '127.0.0.1',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         maxRetriesPerRequest: null,
-    });
+    };
+
+const connection = process.env.REDIS_URL
+    ? new IORedis(process.env.REDIS_URL, connectionOptions)
+    : new IORedis(connectionOptions);
+
+connection.on('connect', () => console.log('Successfully connected to Redis.'));
+connection.on('error', (err) => console.error('Redis connection error:', err));
 
 // BullMQ Queue
 const summarizeQueue = new Queue('summarize', { connection });

@@ -142,6 +142,8 @@ const worker = new Worker(
         connection: process.env.REDIS_URL
             ? {
                 url: process.env.REDIS_URL,
+                family: 0,
+                connectTimeout: 20000,
                 tls: { rejectUnauthorized: false }
             }
             : {
