@@ -16,11 +16,7 @@ const port = process.env.PORT || 5001;
 
 // Redis connection
 const connection = process.env.REDIS_URL
-    ? new IORedis(process.env.REDIS_URL, {
-        maxRetriesPerRequest: null,
-        connectTimeout: 20000,
-        family: 4, // Upstash/Render works better if we force IPv4
-    })
+    ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
     : new IORedis({
         host: process.env.REDIS_HOST || '127.0.0.1',
         port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -56,56 +52,45 @@ function getCacheKey(videoUrl) {
 app.post('/api/transcript', async (req, res) => {
     try {
         const { url } = req.body;
+        if (!url) return res.status(400).json({ error: 'Video URL is required' });
 
-        if (!url) {
-            return res.status(400).json({ error: 'Video URL is required' });
-        }
-
-        console.log(`[Apify] Fetching transcript for: ${url}`);
-
-        // Prepare Apify Actor input
+        console.log(`[Apify] Starting actor for: ${url}`);
         const input = {
             "outputFormat": "captions",
             "urls": [url],
-            "maxRetries": 8,
-            "channelNameBoolean": true,
-            "channelIDBoolean": true,
-            "datePublishedBoolean": true,
-            "thumbnailBoolean": true,
-            "proxyOptions": {
-                "useApifyProxy": true
-            }
+            "maxRetries": 5,
+            "proxyOptions": { "useApifyProxy": true }
         };
 
-        // Run the Actor (1s7eXiaukVuOr4Ueg is the YouTube Transcript Scraper)
         const run = await apifyClient.actor("1s7eXiaukVuOr4Ueg").call(input);
-
-        // Fetch results from dataset
         const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
 
-        if (!items || items.length === 0 || !items[0].captions) {
-            throw new Error('No transcript found via Apify for this video');
+        if (!items || items.length === 0) {
+            throw new Error('Apify dataset is empty');
         }
 
-        // Map Apify captions to the format expected by our frontend and worker
-        // Filter out any null/undefined segments to prevent crashes
-        const formattedTranscript = items[0].captions
-            .filter(c => c && c.text)
+        // The actor might return data in .captions or .transcript or .text
+        const rawCaptions = items[0].captions || items[0].transcript || items[0].text;
+
+        if (!rawCaptions || !Array.isArray(rawCaptions)) {
+            console.log('[Apify] Raw Item structure:', JSON.stringify(items[0]).substring(0, 500));
+            throw new Error('Transcript format not recognized in Apify output');
+        }
+
+        const formattedTranscript = rawCaptions
+            .filter(c => c && (c.text || typeof c === 'string'))
             .map(c => ({
-                text: c.text,
-                offset: Math.floor((c.start || 0) * 1000), // convert to milliseconds
+                text: typeof c === 'string' ? c : c.text,
+                offset: Math.floor((c.start || c.offset || 0) * 1000),
                 duration: Math.floor((c.duration || 0) * 1000)
             }));
 
-        console.log(`[Apify] Got ${formattedTranscript.length} segments`);
+        console.log(`[Apify] Successfully parsed ${formattedTranscript.length} segments`);
         res.json({ content: formattedTranscript });
 
     } catch (error) {
-        console.error('Error fetching transcript via Apify:', error.message);
-        res.status(500).json({
-            error: 'Failed to fetch transcript (Apify)',
-            details: error.message
-        });
+        console.error('Apify Error:', error.message);
+        res.status(500).json({ error: 'Transcript Fetch Failed', details: error.message });
     }
 });
 
