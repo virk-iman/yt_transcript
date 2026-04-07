@@ -140,12 +140,7 @@ const worker = new Worker(
     },
     {
         connection: process.env.REDIS_URL
-            ? {
-                url: process.env.REDIS_URL,
-                family: 0,
-                connectTimeout: 20000,
-                tls: { rejectUnauthorized: false }
-            }
+            ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null, connectTimeout: 20000, family: 4 })
             : {
                 host: process.env.REDIS_HOST || '127.0.0.1',
                 port: parseInt(process.env.REDIS_PORT || '6379'),
