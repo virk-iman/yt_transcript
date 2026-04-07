@@ -14,26 +14,33 @@ const apifyClient = new ApifyClient({
 const app = express();
 const port = process.env.PORT || 5001;
 
-// Redis connection
-const connection = process.env.REDIS_URL
-    ? new IORedis(process.env.REDIS_URL, {
+// Redis connection logic
+let connection;
+if (process.env.REDIS_URL) {
+    // Manually parse upstash URL: rediss://default:PASSWORD@HOST:PORT
+    const url = new URL(process.env.REDIS_URL);
+    connection = new IORedis({
+        host: url.hostname,
+        port: parseInt(url.port),
+        username: url.username,
+        password: url.password,
+        tls: { rejectUnauthorized: false },
+        family: 4, // Force IPv4
+        connectTimeout: 15000,
         maxRetriesPerRequest: null,
-        // This is the missing piece for Upstash + Render
-        tls: {
-            rejectUnauthorized: false
-        }
-    })
-    : new IORedis({
+    });
+} else {
+    connection = new IORedis({
         host: process.env.REDIS_HOST || '127.0.0.1',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         maxRetriesPerRequest: null,
     });
+}
 
-connection.on('connect', () => console.log('Successfully connected to Redis.'));
+connection.on('connect', () => console.log('✅ Connected to Redis successfully.'));
 connection.on('error', (err) => {
-    // Suppress ETIMEDOUT logs if we are trying to reconnect
     if (err.message.includes('ETIMEDOUT')) return;
-    console.error('Redis Error:', err.message);
+    console.error('❌ Redis Connection Error:', err.message);
 });
 
 // BullMQ Queue

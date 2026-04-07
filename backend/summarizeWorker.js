@@ -131,34 +131,43 @@ async function summarizeChunks(transcript, job) {
 }
 
 // ─── BullMQ Worker ────────────────────────────────────────────
-const worker = new Worker(
-    'summarize',
-    async (job) => {
-        console.log(`[Worker] Processing job ${job.id} for video: ${job.data.videoUrl || 'unknown'}`);
-        const summary = await summarizeChunks(job.data.transcript, job);
-        console.log(`[Worker] Job ${job.id} completed.`);
-        return { summary };
+// ─── Worker Setup ─────────────────────────────────────────────
+const workerOptions = {
+    connection: process.env.REDIS_URL ? (function () {
+        const url = new URL(process.env.REDIS_URL);
+        return {
+            host: url.hostname,
+            port: parseInt(url.port),
+            username: url.username,
+            password: url.password,
+            tls: { rejectUnauthorized: false },
+            family: 4,
+            connectTimeout: 15000,
+            maxRetriesPerRequest: null
+        };
+    })() : {
+        host: process.env.REDIS_HOST || '127.0.0.1',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
     },
-    {
-        connection: process.env.REDIS_URL
-            ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
-            : {
-                host: process.env.REDIS_HOST || '127.0.0.1',
-                port: parseInt(process.env.REDIS_PORT || '6379'),
-            },
-        concurrency: 1,
-        limiter: {
-            max: 1,
-            duration: RATE_LIMIT_DELAY_MS,
-        },
+    concurrency: 1,
+    limiter: {
+        max: 1,
+        duration: RATE_LIMIT_DELAY_MS
     }
-);
+};
 
-worker.on('completed', (job) => {
+const summarizeWorker = new Worker('summarize', async (job) => {
+    console.log(`[Worker] Processing job ${job.id} for video: ${job.data.videoUrl || 'unknown'}`);
+    const summary = await summarizeChunks(job.data.transcript, job);
+    console.log(`[Worker] Job ${job.id} completed.`);
+    return { summary };
+}, workerOptions);
+
+summarizeWorker.on('completed', (job) => {
     console.log(`[Worker] Job ${job.id} finished successfully.`);
 });
 
-worker.on('failed', (job, err) => {
+summarizeWorker.on('failed', (job, err) => {
     console.error(`[Worker] Job ${job?.id} failed:`, err.message);
 });
 
