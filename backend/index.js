@@ -88,12 +88,14 @@ app.post('/api/transcript', async (req, res) => {
         }
 
         // Map Apify captions to the format expected by our frontend and worker
-        // Apify uses 'start' (seconds) and 'text'
-        const formattedTranscript = items[0].captions.map(c => ({
-            text: c.text,
-            offset: Math.floor(c.start * 1000), // convert to milliseconds
-            duration: Math.floor((c.duration || 0) * 1000)
-        }));
+        // Filter out any null/undefined segments to prevent crashes
+        const formattedTranscript = items[0].captions
+            .filter(c => c && c.text)
+            .map(c => ({
+                text: c.text,
+                offset: Math.floor((c.start || 0) * 1000), // convert to milliseconds
+                duration: Math.floor((c.duration || 0) * 1000)
+            }));
 
         console.log(`[Apify] Got ${formattedTranscript.length} segments`);
         res.json({ content: formattedTranscript });

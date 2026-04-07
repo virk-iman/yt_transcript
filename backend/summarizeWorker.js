@@ -40,6 +40,7 @@ function chunkTranscript(transcript) {
     const chunks = [];
     let currentChunk = "";
     for (const segment of transcript) {
+        if (!segment || !segment.text) continue;
         if ((currentChunk.length + segment.text.length) > CHUNK_SIZE_CHARS) {
             chunks.push(currentChunk);
             currentChunk = "";
