@@ -47,9 +47,10 @@ const summarizeQueue = new Queue('summarize', { connection });
 const summaryCache = new Map();
 
 app.use(cors({
-    origin: '*',
+    origin: ['https://yt-transcript-sooty.vercel.app', 'http://localhost:5173', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
 app.use(express.json());
 
