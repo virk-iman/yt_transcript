@@ -46,14 +46,14 @@ const summarizeQueue = new Queue('summarize', { connection });
 // In-memory cache: videoUrl -> summary
 const summaryCache = new Map();
 
-const allowedOrigins = [
-    'https://yt-transcript-sooty.vercel.app/',
-    'https://yt-transcript-kq57.onrender.com/'
-];
+const allowedOrigins = new Set([
+    'https://yt-transcript-sooty.vercel.app',
+    'https://yt-transcript-kq57.onrender.com',
+]);
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin || allowedOrigins.has(origin)) {
             return callback(null, true);
         }
         callback(new Error(`CORS origin denied: ${origin}`));
@@ -64,12 +64,6 @@ app.use(cors({
     optionsSuccessStatus: 200,
 }));
 app.use(express.json());
-app.use((req, res, next) => {
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-    }
-    next();
-});
 
 // Helper: generate a cache key from video URL
 function getCacheKey(videoUrl) {
