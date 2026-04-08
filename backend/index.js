@@ -63,8 +63,13 @@ app.use(cors({
     credentials: false,
     optionsSuccessStatus: 200,
 }));
-app.options('/*', cors());
 app.use(express.json());
+app.use((req, res, next) => {
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
 
 // Helper: generate a cache key from video URL
 function getCacheKey(videoUrl) {
