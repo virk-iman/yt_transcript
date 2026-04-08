@@ -47,8 +47,8 @@ const summarizeQueue = new Queue('summarize', { connection });
 const summaryCache = new Map();
 
 const allowedOrigins = [
-    'https://yt-transcript-sooty.vercel.app',
-    'https://yt-transcript-kq57.onrender.com'
+    'https://yt-transcript-sooty.vercel.app/',
+    'https://yt-transcript-kq57.onrender.com/'
 ];
 
 app.use(cors({
