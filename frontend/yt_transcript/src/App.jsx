@@ -160,7 +160,7 @@ function App() {
           </nav>
           <div className="flex items-center gap-4">
             <button className="px-5 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-lg transition-all duration-200"></button>
-            <button className="px-6 py-2.5 bg-blue-700 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all"></button>
+            <button className="px-6 py-2.5 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all"></button>
           </div>
         </div>
         <div className="h-[1px] w-full bg-gradient-to-b from-slate-100/50 to-transparent"></div>
