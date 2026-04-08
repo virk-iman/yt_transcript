@@ -47,7 +47,8 @@ const summarizeQueue = new Queue('summarize', { connection });
 const summaryCache = new Map();
 
 const allowedOrigins = [
-    'https://yt-transcript-sooty.vercel.app'
+    'https://yt-transcript-sooty.vercel.app',
+    'https://yt-transcript-kq57.onrender.com'
 ];
 
 app.use(cors({
@@ -62,7 +63,7 @@ app.use(cors({
     credentials: false,
     optionsSuccessStatus: 200,
 }));
-app.options('*', cors());
+app.options('/*', cors());
 app.use(express.json());
 
 // Helper: generate a cache key from video URL
