@@ -47,10 +47,7 @@ const summarizeQueue = new Queue('summarize', { connection });
 const summaryCache = new Map();
 
 const allowedOrigins = [
-    'https://yt-transcript-kq57.onrender.com',
-    'https://yt-transcript-sooty.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000',
+    'https://yt-transcript-sooty.vercel.app'
 ];
 
 app.use(cors({
