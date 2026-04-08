@@ -47,9 +47,9 @@ const summarizeQueue = new Queue('summarize', { connection });
 const summaryCache = new Map();
 
 app.use(cors({
-    origin: '*',
+    origin: ['https://yt-transcript-kq57.onrender.com'],
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type','Authorization'],
     credentials: true
 }));
 app.use(express.json());
