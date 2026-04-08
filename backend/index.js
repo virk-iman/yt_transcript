@@ -46,41 +46,17 @@ const summarizeQueue = new Queue('summarize', { connection });
 // In-memory cache: videoUrl -> summary
 const summaryCache = new Map();
 
-const allowedOrigins = [
+const allowedOrigins = new Set([
     'https://yt-transcript-sooty.vercel.app',
     'https://yt-transcript-kq57.onrender.com',
-    'http://localhost:5173',
-    'http://localhost:3000',
-];
-
-app.set('trust proxy', 1);
+]);
 
 app.use(cors({
     origin: (origin, callback) => {
-        console.log('Incoming origin:', origin);
-
-        // Allow requests with no origin (Postman, curl, health checks, server-side)
-        if (!origin) {
+        if (!origin || allowedOrigins.has(origin)) {
             return callback(null, true);
         }
-
-        const normalizedOrigin = origin.toLowerCase().replace(/\/$/, '');
-
-        const isAllowed = allowedOrigins.some(
-            (allowed) =>
-                normalizedOrigin === allowed ||
-                normalizedOrigin.startsWith(allowed)
-        );
-
-        // Allow all Vercel preview deployments
-        const isVercelPreview = normalizedOrigin.includes('.vercel.app');
-
-        if (isAllowed || isVercelPreview) {
-            return callback(null, true);
-        }
-
-        console.warn(`❌ CORS denied origin: ${origin}`);
-        return callback(new Error(`CORS origin denied: ${origin}`));
+        callback(new Error(`CORS origin denied: ${origin}`));
     },
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
