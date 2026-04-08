@@ -49,13 +49,20 @@ const summaryCache = new Map();
 const allowedOrigins = new Set([
     'https://yt-transcript-sooty.vercel.app',
     'https://yt-transcript-kq57.onrender.com',
+    'http://localhost:5173',
+    'http://localhost:3000',
 ]);
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.has(origin)) {
+        if (!origin) {
             return callback(null, true);
         }
+        const normalizedOrigin = origin.toLowerCase();
+        if (allowedOrigins.has(normalizedOrigin)) {
+            return callback(null, true);
+        }
+        console.warn(`CORS denied origin: ${origin}`);
         callback(new Error(`CORS origin denied: ${origin}`));
     },
     methods: ['GET', 'POST', 'OPTIONS'],
