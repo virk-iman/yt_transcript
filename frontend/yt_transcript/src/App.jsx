@@ -151,16 +151,16 @@ function App() {
       {/* TopNavBar */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm top-0 sticky z-50 transition-all duration-200">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between font-headline antialiased tracking-tight">
-          <div className="text-2xl font-bold tracking-tighter text-slate-900">StreamFlow</div>
+          <div className="text-2xl font-bold tracking-tighter text-slate-900">Youtube Transcript</div>
           <nav className="hidden md:flex items-center gap-8">
-            <a className="text-blue-700 font-semibold border-b-2 border-blue-700 pb-1" href="#">Features</a>
-            <a className="text-slate-600 hover:text-blue-600 transition-colors" href="#">Pricing</a>
-            <a className="text-slate-600 hover:text-blue-600 transition-colors" href="#">Resources</a>
-            <a className="text-slate-600 hover:text-blue-600 transition-colors" href="#">Company</a>
+            <a className="text-blue-700 font-semibold border-b-2 border-blue-700 pb-1" href="#"></a>
+            <a className="text-slate-600 hover:text-blue-600 transition-colors" href="#"></a>
+            <a className="text-slate-600 hover:text-blue-600 transition-colors" href="#"></a>
+            <a className="text-slate-600 hover:text-blue-600 transition-colors" href="#"></a>
           </nav>
           <div className="flex items-center gap-4">
-            <button className="px-5 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-lg transition-all duration-200">Login</button>
-            <button className="px-6 py-2.5 bg-blue-700 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all">Get Started</button>
+            <button className="px-5 py-2 text-slate-600 font-medium hover:bg-slate-50 rounded-lg transition-all duration-200"></button>
+            <button className="px-6 py-2.5 bg-blue-700 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all"></button>
           </div>
         </div>
         <div className="h-[1px] w-full bg-gradient-to-b from-slate-100/50 to-transparent"></div>
