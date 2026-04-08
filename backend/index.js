@@ -49,6 +49,7 @@ const summaryCache = new Map();
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
     credentials: true
 }));
 app.use(express.json());
