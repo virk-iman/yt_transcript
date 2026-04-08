@@ -46,12 +46,26 @@ const summarizeQueue = new Queue('summarize', { connection });
 // In-memory cache: videoUrl -> summary
 const summaryCache = new Map();
 
+const allowedOrigins = [
+    'https://yt-transcript-kq57.onrender.com',
+    'https://yt-transcript-sooty.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+];
+
 app.use(cors({
-    origin: ['https://yt-transcript-kq57.onrender.com'],
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        callback(new Error(`CORS origin denied: ${origin}`));
+    },
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type','Authorization'],
-    credentials: true
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+    optionsSuccessStatus: 200,
 }));
+app.options('*', cors());
 app.use(express.json());
 
 // Helper: generate a cache key from video URL
