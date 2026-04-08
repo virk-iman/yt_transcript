@@ -183,22 +183,24 @@ function App() {
           {/* URL Input Area */}
           <div className="max-w-3xl mx-auto mb-16">
             <div className="relative group">
-              <div className="flex items-center p-2 rounded-xl bg-surface-container-highest shadow-sm group-focus-within:bg-surface-container-lowest group-focus-within:ring-2 group-focus-within:ring-primary/20 transition-all duration-300">
-                <div className="pl-4 pr-3 flex items-center text-error">
-                  <span className="material-symbols-outlined">smart_display</span>
+              <div className="flex flex-col md:flex-row gap-2 p-2 rounded-2xl bg-surface-container-highest shadow-sm group-focus-within:bg-surface-container-lowest group-focus-within:ring-4 group-focus-within:ring-primary/10 transition-all duration-300">
+                <div className="flex flex-1 items-center">
+                  <div className="pl-4 pr-3 flex items-center text-error">
+                    <span className="material-symbols-outlined">smart_display</span>
+                  </div>
+                  <input
+                    className="w-full bg-transparent border-none outline-none focus:ring-0 text-base md:text-lg py-3 md:py-4 placeholder:text-outline"
+                    placeholder="Paste YouTube video URL here..."
+                    type="text"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && fetchTranscript()}
+                  />
                 </div>
-                <input
-                  className="w-full bg-transparent border-none outline-none focus:ring-0 text-lg py-4 placeholder:text-outline"
-                  placeholder="Paste YouTube video URL here..."
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchTranscript()}
-                />
                 <button
                   onClick={fetchTranscript}
                   disabled={loading || !url.trim()}
-                  className="bg-primary hover:bg-primary-dim text-white font-bold py-4 px-8 rounded-lg shadow-lg flex items-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="bg-primary hover:bg-primary-dim text-white font-bold py-4 px-8 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full md:w-auto"
                 >
                   {loading ? (
                     <>
@@ -206,7 +208,10 @@ function App() {
                       Loading...
                     </>
                   ) : (
-                    'Get Transcript'
+                    <>
+                      <span className="material-symbols-outlined md:hidden">content_paste_go</span>
+                      Get Transcript
+                    </>
                   )}
                 </button>
               </div>
