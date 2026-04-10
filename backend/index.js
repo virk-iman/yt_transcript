@@ -63,7 +63,7 @@ app.use(cors({
     credentials: false,
     optionsSuccessStatus: 200,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Helper: generate a cache key from video URL
 function getCacheKey(videoUrl) {
@@ -240,8 +240,8 @@ app.get('/api/queue/stats', async (req, res) => {
 // ─── Summarization Worker Logic (Consolidated) ───────────────────
 const RATE_LIMIT_DELAY_MS = 15000; // 15s between chunks
 
-async function summarizeChunks(transcript) {
-    const CHUNK_SIZE_CHARS = 3000; // Small chunks for your 6000 TPM limit
+async function summarizeChunks(job, transcript) {
+    const CHUNK_SIZE_CHARS = 2000; // Reduced for safety
     const RATE_LIMIT_DELAY = 15000; // 15s between chunks
     const chunks = [];
     let currentChunk = "";
@@ -258,6 +258,9 @@ async function summarizeChunks(transcript) {
 
     console.log(`[Worker] Summarizing transcript in ${chunks.length} chunks...`);
 
+    // Update progress: chunking
+    job.progress({ stage: 'chunking', total: chunks.length });
+
     let finalSummary = "";
     const apiKeys = (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '')
         .split(',')
@@ -270,6 +273,9 @@ async function summarizeChunks(transcript) {
         const client = new Groq({ apiKey: key });
 
         console.log(`[Worker] Processing chunk ${i + 1}/${chunks.length} using key ${i % apiKeys.length + 1}...`);
+
+        // Update progress: summarizing
+        job.progress({ stage: 'summarizing', chunk: i + 1, total: chunks.length });
 
         try {
             const completion = await client.chat.completions.create({
@@ -302,13 +308,16 @@ async function summarizeChunks(transcript) {
         }
     }
 
+    // Update progress: merging
+    job.progress({ stage: 'merging' });
+
     return finalSummary;
 }
 
 // Initialize Worker in the same process
 const summarizeWorker = new Worker('summarize', async (job) => {
     console.log(`[Worker] Processing job ${job.id} for video: ${job.data.videoUrl || 'unknown'}`);
-    const summary = await summarizeChunks(job.data.transcript);
+    const summary = await summarizeChunks(job, job.data.transcript);
     console.log(`[Worker] Job ${job.id} completed.`);
     return { summary };
 }, {
