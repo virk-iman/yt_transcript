@@ -241,7 +241,7 @@ app.get('/api/queue/stats', async (req, res) => {
 const RATE_LIMIT_DELAY_MS = 15000; // 15s between chunks
 
 async function summarizeChunks(job, transcript) {
-    const CHUNK_SIZE_CHARS = 2000; // Reduced for safety
+    const CHUNK_SIZE_CHARS = 3000; // Reduced for safety
     const RATE_LIMIT_DELAY = 15000; // 15s between chunks
     const chunks = [];
     let currentChunk = "";
