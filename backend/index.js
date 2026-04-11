@@ -259,7 +259,7 @@ async function summarizeChunks(job, transcript) {
     console.log(`[Worker] Summarizing transcript in ${chunks.length} chunks...`);
 
     // Update progress: chunking
-    job.progress({ stage: 'chunking', total: chunks.length });
+    await job.updateProgress({ stage: 'chunking', total: chunks.length });
 
     let finalSummary = "";
     const apiKeys = (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '')
@@ -275,7 +275,7 @@ async function summarizeChunks(job, transcript) {
         console.log(`[Worker] Processing chunk ${i + 1}/${chunks.length} using key ${i % apiKeys.length + 1}...`);
 
         // Update progress: summarizing
-        job.progress({ stage: 'summarizing', chunk: i + 1, total: chunks.length });
+        await job.updateProgress({ stage: 'summarizing', chunk: i + 1, total: chunks.length });
 
         try {
             const completion = await client.chat.completions.create({
@@ -309,7 +309,7 @@ async function summarizeChunks(job, transcript) {
     }
 
     // Update progress: merging
-    job.progress({ stage: 'merging' });
+    await job.updateProgress({ stage: 'merging' });
 
     return finalSummary;
 }
